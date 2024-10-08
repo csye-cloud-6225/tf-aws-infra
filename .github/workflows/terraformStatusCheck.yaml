@@ -19,6 +19,9 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.9.7 # Use the Terraform version you're working with
+              # Step 3: Run terraform fmt to ensure proper formatting
+      - name: Terraform run
+        run: terraform init
 
       # Step 3: Run terraform fmt to ensure proper formatting
       - name: Terraform FMT
