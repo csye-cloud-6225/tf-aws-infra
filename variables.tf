@@ -55,3 +55,7 @@ variable "az_3" {
   description = "Availability Zone 3"
   type        = string
 }
+variable "custom_ami" {
+  description = "The AMI ID for the EC2 instance."
+  type        = string
+}
