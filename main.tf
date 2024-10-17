@@ -29,17 +29,17 @@ resource "aws_subnet" "public_subnet_1" {
   cidr_block        = var.public_subnet_cidr_1
   availability_zone = var.az_1
 
-  map_public_ip_on_launch = true  # Ensure this is set
+  map_public_ip_on_launch = true # Ensure this is set
   tags = {
     Name = "Public Subnet 1"
   }
 }
 
 resource "aws_subnet" "public_subnet_2" {
-  vpc_id            = aws_vpc.main_vpc.id
-  cidr_block        = var.public_subnet_cidr_2
-  availability_zone = var.az_2
-  map_public_ip_on_launch = true  # Ensure this is set
+  vpc_id                  = aws_vpc.main_vpc.id
+  cidr_block              = var.public_subnet_cidr_2
+  availability_zone       = var.az_2
+  map_public_ip_on_launch = true # Ensure this is set
 
 
   tags = {
@@ -48,10 +48,10 @@ resource "aws_subnet" "public_subnet_2" {
 }
 
 resource "aws_subnet" "public_subnet_3" {
-  vpc_id            = aws_vpc.main_vpc.id
-  cidr_block        = var.public_subnet_cidr_3
-  availability_zone = var.az_3
-  map_public_ip_on_launch = true  # Ensure this is set
+  vpc_id                  = aws_vpc.main_vpc.id
+  cidr_block              = var.public_subnet_cidr_3
+  availability_zone       = var.az_3
+  map_public_ip_on_launch = true # Ensure this is set
 
   tags = {
     Name = "Public Subnet 3"
@@ -193,10 +193,10 @@ resource "aws_security_group" "app_sg" {
 
 # EC2 Instance
 resource "aws_instance" "app_instance" {
-  ami                    = var.custom_ami                   # Replace with your custom AMI ID
-  instance_type          = "t2.small"                       # Change instance type if needed
-  subnet_id              = aws_subnet.public_subnet_1.id    # Choose the public subnet
-  vpc_security_group_ids = [aws_security_group.app_sg.id]   # Use vpc_security_group_ids
+  ami                    = var.custom_ami                 # Replace with your custom AMI ID
+  instance_type          = "t2.small"                     # Change instance type if needed
+  subnet_id              = aws_subnet.public_subnet_1.id  # Choose the public subnet
+  vpc_security_group_ids = [aws_security_group.app_sg.id] # Use vpc_security_group_ids
 
   root_block_device {
     volume_size           = 25    # Root Volume Size
