@@ -199,10 +199,10 @@ resource "aws_security_group" "db_sg" {
 
   # Ingress rule to allow traffic from the application security group
   ingress {
-    from_port          = 3306 # MySQL
-    to_port            = 3306
-    protocol           = "tcp"
-    security_groups    = [aws_security_group.app_sg.id]
+    from_port       = 3306 # MySQL
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app_sg.id]
   }
 
   # Restrict egress to allow all outbound traffic
@@ -220,7 +220,7 @@ resource "aws_instance" "app_instance" {
   instance_type          = "t2.small"
   subnet_id              = aws_subnet.public_subnet_1.id
   vpc_security_group_ids = [aws_security_group.app_sg.id]
-  depends_on = [ aws_db_instance.my_database ]
+  depends_on             = [aws_db_instance.my_database]
   # User Data Script
   user_data = <<-EOF
               #!/bin/bash
@@ -267,7 +267,7 @@ resource "aws_db_parameter_group" "my_db_parameter_group" {
 
 # RDS Subnet Group (for private subnets)
 resource "aws_db_subnet_group" "my_db_subnet_group" {
-  name       = "my-db-subnet-group"
+  name = "my-db-subnet-group"
   subnet_ids = [
     aws_subnet.private_subnet_1.id,
     aws_subnet.private_subnet_2.id,
@@ -281,17 +281,17 @@ resource "aws_db_subnet_group" "my_db_subnet_group" {
 
 # RDS Instance (MySQL Example)
 resource "aws_db_instance" "my_database" {
-  allocated_storage    = 20
-  storage_type        = "gp2"
-  engine              = "mysql"
-  engine_version      = "8.0"
-  instance_class      = "db.t3.micro" # Cheapest instance type
-  db_subnet_group_name = aws_db_subnet_group.my_db_subnet_group.name
+  allocated_storage      = 20
+  storage_type           = "gp2"
+  engine                 = "mysql"
+  engine_version         = "8.0"
+  instance_class         = "db.t3.micro" # Cheapest instance type
+  db_subnet_group_name   = aws_db_subnet_group.my_db_subnet_group.name
   vpc_security_group_ids = [aws_security_group.db_sg.id]
-  db_name              = "csye6225"
-  username            = "csye6225"
-  password            = var.db_password
-  parameter_group_name = aws_db_parameter_group.my_db_parameter_group.name
+  db_name                = "csye6225"
+  username               = "csye6225"
+  password               = var.db_password
+  parameter_group_name   = aws_db_parameter_group.my_db_parameter_group.name
 
   skip_final_snapshot = true
 
