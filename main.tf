@@ -226,21 +226,17 @@ resource "aws_instance" "app_instance" {
               #!/bin/bash
               # Update the system
               echo "DB_HOST=${aws_db_instance.my_database.address}" >> /etc/environment
-              echo "DB_USER=csye6225" >> /etc/environment
-              echo "DB_NAME=csye6225" >> /etc/environment
-              echo "DB_PORT=3306" >> /etc/environment
+              echo "DB_USER=${var.db_username}" >> /etc/environment
+              echo "DB_NAME=${var.db_name}" >> /etc/environment
+              echo "DB_PORT=${var.db_port}" >> /etc/environment
               echo "DB_PASSWORD=${var.db_password}" >> /etc/environment
 
               #Source the env variables
               source /etc/environment
-
-              # Test database connection
-              mysql -h $DB_HOST -u $DB_USER -p$DB_PASSWORD -e "SHOW DATABASES;" >> /var/log/db_connection.log 2>&1
               sudo systemctl restart my-app.service
               cd /opt/webapp
               sudo -u csye6225 npx sequelize-cli db:migrate
               sudo systemctl restart my-app.service
-              # Additional commands to configure the application can be added here
               EOF
 
   root_block_device {
@@ -257,7 +253,7 @@ resource "aws_instance" "app_instance" {
 # RDS Parameter Group
 resource "aws_db_parameter_group" "my_db_parameter_group" {
   name        = "csye6225-parameter-group"
-  family      = "mysql8.0" # Change this based on your DB engine and version
+  family      = "mysql8.0"
   description = "Parameter group for MySQL 8.0"
 
   tags = {
@@ -285,11 +281,11 @@ resource "aws_db_instance" "my_database" {
   storage_type           = "gp2"
   engine                 = "mysql"
   engine_version         = "8.0"
-  instance_class         = "db.t3.micro" # Cheapest instance type
+  instance_class         = "db.t3.micro"
   db_subnet_group_name   = aws_db_subnet_group.my_db_subnet_group.name
   vpc_security_group_ids = [aws_security_group.db_sg.id]
-  db_name                = "csye6225"
-  username               = "csye6225"
+  db_name                = var.db_name
+  username               = var.db_username
   password               = var.db_password
   parameter_group_name   = aws_db_parameter_group.my_db_parameter_group.name
 
