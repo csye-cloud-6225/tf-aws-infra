@@ -426,7 +426,7 @@ resource "aws_instance" "app_instance" {
               echo "AWS_REGION=${var.aws_region}" >> /etc/environment
               echo "AWS_ACCESS_KEY_ID=${var.AWS_ACCESS_KEY}" >> /etc/environment
               echo "SECRET_ACCESS_KEY=${var.AWS_SECRET_ACCESS_KEY}" >> /etc/environment
-              echo "INSTANCE_ID=$(curl -s http://aws_instance.app_instance.public_ip/latest/meta-data/instance-id)" >> /etc/environment
+              
               #Source the env variables
               source /etc/environment
               sudo systemctl restart my-app.service
