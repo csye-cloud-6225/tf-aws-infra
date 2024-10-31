@@ -2,6 +2,18 @@ provider "aws" {
   region  = var.aws_region
   profile = var.aws_profile
 }
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0" # Update this to the latest version you are using
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
+  }
+}
 
 # VPC
 resource "aws_vpc" "main_vpc" {
@@ -214,41 +226,7 @@ resource "aws_security_group" "db_sg" {
   }
 }
 
-# EC2 Instance
-resource "aws_instance" "app_instance" {
-  ami                    = var.custom_ami
-  instance_type          = "t2.small"
-  subnet_id              = aws_subnet.public_subnet_1.id
-  vpc_security_group_ids = [aws_security_group.app_sg.id]
-  depends_on             = [aws_db_instance.my_database]
-  # User Data Script
-  user_data = <<-EOF
-              #!/bin/bash
-              # Update the system
-              echo "DB_HOST=${aws_db_instance.my_database.address}" >> /etc/environment
-              echo "DB_USER=${var.db_username}" >> /etc/environment
-              echo "DB_NAME=${var.db_name}" >> /etc/environment
-              echo "DB_PORT=${var.db_port}" >> /etc/environment
-              echo "DB_PASSWORD=${var.db_password}" >> /etc/environment
 
-              #Source the env variables
-              source /etc/environment
-              sudo systemctl restart my-app.service
-              cd /opt/webapp
-              sudo -u csye6225 npx sequelize-cli db:migrate
-              sudo systemctl restart my-app.service
-              EOF
-
-  root_block_device {
-    volume_size           = 25
-    volume_type           = "gp2"
-    delete_on_termination = true
-  }
-
-  tags = {
-    Name = "Test Web Application Instance"
-  }
-}
 
 # RDS Parameter Group
 resource "aws_db_parameter_group" "my_db_parameter_group" {
@@ -299,4 +277,190 @@ resource "aws_db_instance" "my_database" {
 # Output the database endpoint
 output "db_instance_endpoint" {
   value = aws_db_instance.my_database.address
+}
+
+
+# Generate Random ID for Bucket Name
+resource "random_id" "bucket_name" {
+  byte_length = 7
+}
+
+# S3 Bucket Configuration
+resource "aws_s3_bucket" "private_webapp_bucket" {
+  bucket = "s3-${var.assignment}-${random_id.bucket_name.hex}"
+
+  force_destroy = true  # Allow deletion of non-empty bucket
+
+  tags = {
+    Name        = "Terraform Private S3 Bucket"
+    Environment = "${var.assignment} - S3 Bucket"
+  }
+}
+
+# S3 Bucket Lifecycle Configuration (Transition to STANDARD_IA after 30 days)
+resource "aws_s3_bucket_lifecycle_configuration" "s3_lifecycle_config" {
+  bucket = aws_s3_bucket.private_webapp_bucket.bucket
+
+  rule {
+    id = "lifecycle"
+    filter {}
+
+    transition {
+      days          = 30
+      storage_class = "STANDARD_IA"
+    }
+    status = "Enabled"
+  }
+}
+
+# Enable Default Encryption on S3 Bucket
+resource "aws_s3_bucket_server_side_encryption_configuration" "s3_key_encryption" {
+  bucket = aws_s3_bucket.private_webapp_bucket.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+# Restrict Public Access to S3 Bucket
+resource "aws_s3_bucket_public_access_block" "s3_bucket_public_access_block" {
+  bucket = aws_s3_bucket.private_webapp_bucket.bucket
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# IAM Role for EC2 to Access S3 Bucket
+resource "aws_iam_role" "s3_access_role_to_ec2" {
+  name = "CSYE6225-S3BucketAccessRole"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect = "Allow",
+      Sid    = "RoleForEC2",
+      Principal = { Service = "ec2.amazonaws.com" },
+      Action   = "sts:AssumeRole"
+    }]
+  })
+}
+
+# IAM Policy for S3 Bucket Access
+resource "aws_iam_policy" "s3_access_policy" {
+  name        = "WebappS3AccessPolicy"
+  description = "Policy for accessing the private S3 bucket"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = ["s3:ListBucket","s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+        Resource = [
+          "arn:aws:s3:::${aws_s3_bucket.private_webapp_bucket.bucket}/*",
+          "arn:aws:s3:::${aws_s3_bucket.private_webapp_bucket.bucket}"
+        ]
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "cloudwatch:PutMetricData",
+          "cloudwatch:GetMetricStatistics",
+          "cloudwatch:ListMetrics",
+          "cloudwatch:CreateLogGroup",
+          "cloudwatch:CreateLogStream",
+          "cloudwatch:PutLogEvents"
+        ],
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# Fetch CloudWatch Policy
+data "aws_iam_policy" "cloudwatch_policy" {
+  name = "CloudWatchAgentServerPolicy"
+}
+
+# Attach Policies to EC2 Role
+resource "aws_iam_policy_attachment" "policy_role_attach_s3" {
+  name       = "policy_role_attach_s3"
+  roles      = [aws_iam_role.s3_access_role_to_ec2.name]
+  policy_arn = aws_iam_policy.s3_access_policy.arn
+}
+
+resource "aws_iam_policy_attachment" "policy_role_attach_cloudwatch" {
+  name       = "policy_role_attach_cloudwatch"
+  roles      = [aws_iam_role.s3_access_role_to_ec2.name]
+  policy_arn = data.aws_iam_policy.cloudwatch_policy.arn
+}
+
+# Create Instance Profile for EC2 Role
+resource "aws_iam_instance_profile" "ec2_role_profile" {
+  name = "ec2_role_profile"
+  role = aws_iam_role.s3_access_role_to_ec2.name
+}
+# EC2 Instance
+resource "aws_instance" "app_instance" {
+  ami                    = var.custom_ami
+  instance_type          = "t2.small"
+  subnet_id              = aws_subnet.public_subnet_1.id
+  vpc_security_group_ids = [aws_security_group.app_sg.id]
+  depends_on             = [aws_db_instance.my_database]
+  iam_instance_profile    = aws_iam_instance_profile.ec2_role_profile.name  # Add this line
+  # User Data Script
+  user_data = <<-EOF
+              #!/bin/bash
+              # Update the system
+              echo "DB_HOST=${aws_db_instance.my_database.address}" >> /etc/environment
+              echo "DB_USER=${var.db_username}" >> /etc/environment
+              echo "DB_NAME=${var.db_name}" >> /etc/environment
+              echo "DB_PORT=${var.db_port}" >> /etc/environment
+              echo "DB_PASSWORD=${var.db_password}" >> /etc/environment
+              echo "aws_region=${var.aws_region}" >> /etc/environment
+              echo "bucket_name=${aws_s3_bucket.private_webapp_bucket.bucket}" >> /etc/environment
+              echo "AWS_REGION=${var.aws_region}" >> /etc/environment
+              echo "AWS_ACCESS_KEY_ID=${var.AWS_ACCESS_KEY}" >> /etc/environment
+              echo "SECRET_ACCESS_KEY=${var.AWS_SECRET_ACCESS_KEY}" >> /etc/environment
+              echo "INSTANCE_ID=$(curl -s http://aws_instance.app_instance.public_ip/latest/meta-data/instance-id)" >> /etc/environment
+              #Source the env variables
+              source /etc/environment
+              sudo systemctl restart my-app.service
+              cd /opt/webapp
+              sudo -u csye6225 npx sequelize-cli db:migrate
+              sudo systemctl restart my-app.service
+              sudo systemctl restart amazon-cloudwatch-agent
+
+              EOF
+
+  root_block_device {
+    volume_size           = 25
+    volume_type           = "gp2"
+    delete_on_termination = true
+  }
+  
+  tags = {
+    Name = "Test Web Application Instance"
+  }
+}
+# Route 53 Zone Data Source
+data "aws_route53_zone" "selected_zone" {
+  name         = var.domain_name
+  private_zone = false
+}
+
+# Route 53 A Record Mapping to EC2 Instance
+resource "aws_route53_record" "server_mapping_record" {
+  zone_id = data.aws_route53_zone.selected_zone.zone_id
+  name    = var.domain_name
+  type    = var.record_type
+  ttl     = var.ttl
+  records = [aws_instance.app_instance.public_ip]
+}
+output "ec2_instance_id" {
+  value = aws_instance.app_instance.id
 }
