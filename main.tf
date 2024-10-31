@@ -289,7 +289,7 @@ resource "random_id" "bucket_name" {
 resource "aws_s3_bucket" "private_webapp_bucket" {
   bucket = "s3-${var.assignment}-${random_id.bucket_name.hex}"
 
-  force_destroy = true  # Allow deletion of non-empty bucket
+  force_destroy = true # Allow deletion of non-empty bucket
 
   tags = {
     Name        = "Terraform Private S3 Bucket"
@@ -341,10 +341,10 @@ resource "aws_iam_role" "s3_access_role_to_ec2" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Effect = "Allow",
-      Sid    = "RoleForEC2",
+      Effect    = "Allow",
+      Sid       = "RoleForEC2",
       Principal = { Service = "ec2.amazonaws.com" },
-      Action   = "sts:AssumeRole"
+      Action    = "sts:AssumeRole"
     }]
   })
 }
@@ -359,7 +359,7 @@ resource "aws_iam_policy" "s3_access_policy" {
     Statement = [
       {
         Effect = "Allow",
-        Action = ["s3:ListBucket","s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+        Action = ["s3:ListBucket", "s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
         Resource = [
           "arn:aws:s3:::${aws_s3_bucket.private_webapp_bucket.bucket}/*",
           "arn:aws:s3:::${aws_s3_bucket.private_webapp_bucket.bucket}"
@@ -411,7 +411,7 @@ resource "aws_instance" "app_instance" {
   subnet_id              = aws_subnet.public_subnet_1.id
   vpc_security_group_ids = [aws_security_group.app_sg.id]
   depends_on             = [aws_db_instance.my_database]
-  iam_instance_profile    = aws_iam_instance_profile.ec2_role_profile.name  # Add this line
+  iam_instance_profile   = aws_iam_instance_profile.ec2_role_profile.name # Add this line
   # User Data Script
   user_data = <<-EOF
               #!/bin/bash
@@ -442,7 +442,7 @@ resource "aws_instance" "app_instance" {
     volume_type           = "gp2"
     delete_on_termination = true
   }
-  
+
   tags = {
     Name = "Test Web Application Instance"
   }

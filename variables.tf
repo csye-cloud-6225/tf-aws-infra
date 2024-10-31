@@ -94,7 +94,7 @@ variable "zone_id" {
 }
 
 variable "record_name" {
-  default = "dev"
+  default     = "dev"
   description = "The DNS record name for the EC2 instance"
   type        = string
 }
