@@ -6,7 +6,6 @@ variable "aws_profile" {
   description = "The AWS CLI profile to use for deploying resources"
   type        = string
 }
-C:\Users\hp\Downloads\Nilvi_Shah_002838651_05\Nilvi_Shah_002838651_05\tf-aws-infra\variables.tf
 variable "AWS_ACCESS_KEY" {
   description = "The AWS CLI profile to use for deploying resources"
   type        = string
