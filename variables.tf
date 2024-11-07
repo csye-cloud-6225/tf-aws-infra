@@ -92,6 +92,10 @@ variable "zone_id" {
   description = "The ID of the Route 53 hosted zone"
   type        = string
 }
+variable "aws_keyname" {
+  description = "The name of the existing AWS EC2 key pair to use for SSH access"
+  type        = string
+}
 
 variable "record_name" {
   default     = "dev"
@@ -110,7 +114,7 @@ variable "assignment" {
 
 variable "domain_name" {
   description = "Domain name for Route 53 DNS configuration"
-  default     = "dev.cloudnativeapplication.works"
+  default     = "demo.cloudnativeapplication.works"
 }
 
 variable "record_type" {
