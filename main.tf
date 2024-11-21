@@ -457,6 +457,7 @@ resource "aws_launch_template" "web_app_launch_template" {
     echo "DB_PASSWORD=${var.db_password}" >> /etc/environment
     echo "aws_region=${var.aws_region}" >> /etc/environment
     echo "bucket_name=${aws_s3_bucket.private_webapp_bucket.bucket}" >> /etc/environment
+    echo "SNS_TOPIC_ARN=${aws_sns_topic.new_user_topic.arn}" >> /etc/environment
     source /etc/environment
     sudo systemctl restart my-app.service
     cd /opt/webapp
@@ -472,6 +473,7 @@ resource "aws_launch_template" "web_app_launch_template" {
 
 # Auto Scaling Group
 resource "aws_autoscaling_group" "web_app_asg" {
+  name                = "csye6225_asg"
   desired_capacity    = 3
   min_size            = 3
   max_size            = 5
@@ -640,3 +642,127 @@ resource "aws_route53_record" "server_mapping_record" {
 output "load_balancer_dns" {
   value = aws_lb.web_app_alb.dns_name
 }
+
+resource "aws_sns_topic" "new_user_topic" {
+  name         = "new-user-topic"
+  display_name = "New User Account Creation"
+}
+
+output "sns_topic_arn" {
+  value = aws_sns_topic.new_user_topic.arn
+}
+resource "aws_iam_role" "lambda_role" {
+  name = "lambda_sns_rds_email_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect = "Allow",
+      Principal = {
+        Service = "lambda.amazonaws.com"
+      },
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_policy" "lambda_sns_rds_email_policy" {
+  name        = "lambda_sns_rds_email_policy"
+  description = "Policy for Lambda to access SNS, RDS, and email services"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "sns:Publish",
+          "sns:Subscribe",
+          "rds:DescribeDBInstances",
+          "rds:ExecuteStatement"
+        ],
+        Resource = "*"
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "ses:SendEmail"
+        ],
+        Resource = "*"
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        Resource = "arn:aws:logs:*:*:*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_role_policy_attachment" {
+  policy_arn = aws_iam_policy.lambda_sns_rds_email_policy.arn
+  role       = aws_iam_role.lambda_role.name
+}
+
+resource "aws_lambda_function" "user_verification_lambda" {
+  function_name = "user-verification-lambda"
+  role          = aws_iam_role.lambda_role.arn
+  handler       = "serverless/index.handler"             # Your Lambda function entry point
+  runtime       = "nodejs18.x"                           # Or another runtime of your choice
+  filename      = "C:/Users/hp/Downloads/serverless.zip" # Path to your zip file containing the Lambda code
+
+  environment {
+    variables = {
+      SENDGRID_API_KEY = var.sendgrid_api_key
+      SNS_TOPIC_ARN    = aws_sns_topic.new_user_topic.arn
+      baseURL          = var.baseURL
+    }
+  }
+
+  depends_on = [aws_iam_role_policy_attachment.lambda_role_policy_attachment]
+}
+resource "aws_lambda_permission" "allow_sns_invoke" {
+  statement_id  = "AllowSNSInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.user_verification_lambda.function_name
+  principal     = "sns.amazonaws.com"
+  source_arn    = aws_sns_topic.new_user_topic.arn
+}
+
+resource "aws_iam_policy" "sns_publish_policy" {
+  name        = "SNSPublishPolicy"
+  description = "Policy to allow SNS Publish for the new-user-topic"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect   = "Allow",
+        Action   = "sns:Publish",
+        Resource = aws_sns_topic.new_user_topic.arn
+      }
+    ]
+  })
+}
+resource "aws_iam_policy_attachment" "sns_publish_policy_attachment" {
+  name       = "SNSPublishPolicyAttachment"
+  roles      = [aws_iam_role.s3_access_role_to_ec2.name]
+  policy_arn = aws_iam_policy.sns_publish_policy.arn
+}
+
+output "lambda_function_name" {
+  value = aws_lambda_function.user_verification_lambda.function_name
+}
+resource "aws_sns_topic_subscription" "sns_lambda_subscription" {
+  topic_arn = aws_sns_topic.new_user_topic.arn
+  protocol  = "lambda"
+  endpoint  = aws_lambda_function.user_verification_lambda.arn
+
+  # Allow SNS to invoke the Lambda function
+  depends_on = [aws_lambda_function.user_verification_lambda]
+}
+
