@@ -102,7 +102,12 @@ variable "record_name" {
   description = "The DNS record name for the EC2 instance"
   type        = string
 }
-
+variable "sendgrid_api_key" {
+  type = string
+}
+variable "baseURL" {
+  type = string
+}
 variable "db_sg_description" {
   description = "Description for the database security group"
   type        = string
