@@ -711,9 +711,9 @@ resource "aws_iam_role_policy_attachment" "lambda_role_policy_attachment" {
 resource "aws_lambda_function" "user_verification_lambda" {
   function_name = "user-verification-lambda"
   role          = aws_iam_role.lambda_role.arn
-  handler       = "serverless/index.handler" # Your Lambda function entry point
-  runtime       = "nodejs18.x"               # Or another runtime of your choice
-  filename      = "C:/Users/hp/Downloads/serverless.zip"           # Path to your zip file containing the Lambda code
+  handler       = "serverless/index.handler"             # Your Lambda function entry point
+  runtime       = "nodejs18.x"                           # Or another runtime of your choice
+  filename      = "C:/Users/hp/Downloads/serverless.zip" # Path to your zip file containing the Lambda code
 
   environment {
     variables = {
