@@ -18,6 +18,14 @@ variable "vpc_cidr" {
   description = "CIDR block for the VPC"
   type        = string
 }
+variable "email_password" {
+  description = "Password for email service (SendGrid API key)"
+  type        = string
+}
+variable "email_username" {
+  description = "Password for email service (SendGrid API key)"
+  type        = string
+}
 
 variable "public_subnet_cidr_1" {
   description = "CIDR block for public subnet 1"
@@ -73,11 +81,14 @@ variable "db_username" {
 
 variable "db_password" {
   description = "The password for the database"
+  type        = string
 }
 variable "db_name" {
   description = "Database name"
 }
-
+variable "demo_certificate_arn" {
+  description = "certiifcate arn"
+}
 
 variable "db_port" {
   description = "Database port"
